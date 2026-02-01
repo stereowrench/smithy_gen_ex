@@ -1,0 +1,34 @@
+defmodule <%= @module_name %> do
+  @moduledoc """
+  Behaviour for implementing <%= @service_name %> operations.
+
+  <%= if @documentation do %>
+  <%= @documentation %>
+  <% end %>
+
+  This module defines the callbacks that must be implemented to handle
+  <%= @service_name %> operations. Implement this behaviour in your application
+  to provide the business logic for each operation.
+
+  Generated from Smithy service definition.
+  """
+
+  <%= for operation <- @operations do %>
+  @doc """
+  <%= operation.documentation || "Handles the #{operation.name} operation." %>
+
+  ## Parameters
+
+    <%= if operation.input do %>* `input` - <%= operation.input.name %> structure<% end %>
+
+  ## Returns
+
+    <%= if operation.output do %>* `{:ok, <%= operation.output.name %>.t()}` - Success<% end %>
+    * `{:error, term()}` - Error
+
+  """
+  @callback <%= Macro.underscore(operation.name) %>(<%= if operation.input, do: "#{operation.input.name}.t()", else: "" %>) ::
+    <%= if operation.output do %>{:ok, <%= operation.output.name %>.t()}<% else %>{:ok, term()}<% end %> | {:error, term()}
+
+  <% end %>
+end

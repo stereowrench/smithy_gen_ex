@@ -1,0 +1,114 @@
+defmodule <%= @module_name %> do
+  @moduledoc """
+  HTTP client for <%= @service_name %>.
+
+  <%= if @documentation do %>
+  <%= @documentation %>
+  <% end %>
+
+  This module provides functions to call <%= @service_name %> operations
+  over HTTP using the configured protocol.
+
+  ## Configuration
+
+      config <%= @app_name %>,
+        <%= Macro.underscore(@service_name) %>_base_url: "http://localhost:4000"
+
+  Generated from Smithy service definition.
+  """
+
+  <%= for type_module <- @type_modules do %>
+  alias <%= type_module %>
+  <% end %>
+
+  @base_url_key :<%= Macro.underscore(@service_name) %>_base_url
+
+  <%= for operation <- @operations do %>
+  @doc """
+  <%= operation.documentation || "Calls the #{operation.name} operation." %>
+
+  ## Parameters
+
+    <%= if operation.input do %>* `input` - <%= operation.input.name %> structure<% end %>
+    * `opts` - HTTP client options (optional)
+
+  ## Returns
+
+    <%= if operation.output do %>* `{:ok, <%= operation.output.name %>.t()}` - Success<% end %>
+    * `{:error, term()}` - Error
+
+  ## Examples
+
+      <%= if operation.input do %>
+      iex> input = %<%= operation.input.name %>{}
+      iex> <%= @module_name %>.<%= Macro.underscore(operation.name) %>(input)
+      <% else %>
+      iex> <%= @module_name %>.<%= Macro.underscore(operation.name) %>()
+      <% end %>
+      {:ok, %<%= if operation.output, do: operation.output.name, else: "term" %>{}}
+
+  """
+  @spec <%= Macro.underscore(operation.name) %>(<%= if operation.input do %><%= operation.input.name %>.t(),<% end %> keyword()) ::
+    <%= if operation.output do %>{:ok, <%= operation.output.name %>.t()}<% else %>{:ok, term()}<% end %> | {:error, term()}
+  def <%= Macro.underscore(operation.name) %>(<%= if operation.input, do: "input, ", else: "" %>opts \\\\ []) do
+    url = build_url("<%= operation.http.uri %>"<%= if Enum.any?(operation.http.path_params), do: ", input", else: "" %>)
+    <%= if operation.input do %>
+    body = Jason.encode!(input)
+    <% else %>
+    body = ""
+    <% end %>
+
+    headers = [
+      {"content-type", "application/json"},
+      {"accept", "application/json"}
+    ]
+
+    case HTTPoison.request(<%= operation.http.method |> String.downcase |> String.to_atom |> inspect %>, url, body, headers, opts) do
+      {:ok, %HTTPoison.Response{status_code: <%= operation.http.code %>, body: response_body}} ->
+        <%= if operation.output do %>
+        case Jason.decode(response_body) do
+          {:ok, data} ->
+            changeset = <%= operation.output.name %>.changeset(%<%= operation.output.name %>{}, data)
+            if changeset.valid? do
+              {:ok, Ecto.Changeset.apply_changes(changeset)}
+            else
+              {:error, {:validation_error, changeset}}
+            end
+
+          {:error, reason} ->
+            {:error, {:decode_error, reason}}
+        end
+        <% else %>
+        {:ok, :ok}
+        <% end %>
+
+      {:ok, %HTTPoison.Response{status_code: status_code, body: body}} ->
+        {:error, {:http_error, status_code, body}}
+
+      {:error, reason} ->
+        {:error, {:request_error, reason}}
+    end
+  end
+
+  <% end %>
+
+  # Private helper functions
+
+  defp build_url(path) do
+    base_url = Application.get_env(<%= @app_name %>, @base_url_key, "http://localhost:4000")
+    base_url <> path
+  end
+
+  <%= if Enum.any?(@operations, fn op -> Enum.any?(op.http.path_params) end) do %>
+  defp build_url(path_template, params) do
+    # Replace path parameters
+    <%= for operation <- @operations, Enum.any?(operation.http.path_params) do %>
+    <%= for param <- operation.http.path_params do %>
+    path_template = String.replace(path_template, "{<%= param %>}", to_string(Map.get(params, :<%= param %>)))
+    <% end %>
+    <% end %>
+
+    build_url(path_template)
+  end
+  <% end %>
+end

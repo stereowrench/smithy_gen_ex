@@ -1,0 +1,27 @@
+defmodule <%= @module_name %> do
+  @moduledoc """
+  Router for <%= @service_name %>.
+
+  This module contains the generated routes for <%= @service_name %>.
+  Add these routes to your Phoenix router by importing this module:
+
+      defmodule MyAppWeb.Router do
+        use MyAppWeb, :router
+        import <%= @module_name %>
+
+        scope "/api" do
+          <%= Macro.underscore(@service_name) %>_routes()
+        end
+      end
+
+  Generated from Smithy service definition.
+  """
+
+  defmacro <%= Macro.underscore(@service_name) %>_routes do
+    quote do
+      <%= for operation <- @operations do %>
+      <%= String.downcase(operation.http.method) %> "<%= operation.http.uri %>", <%= @controller_module %>, :<%= Macro.underscore(operation.name) %>
+      <% end %>
+    end
+  end
+end

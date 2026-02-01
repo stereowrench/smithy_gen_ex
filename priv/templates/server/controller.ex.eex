@@ -1,0 +1,74 @@
+defmodule <%= @module_name %> do
+  @moduledoc """
+  Phoenix controller for <%= @service_name %>.
+
+  <%= if @documentation do %>
+  <%= @documentation %>
+  <% end %>
+
+  This controller handles HTTP requests for <%= @service_name %> operations
+  and delegates to the configured behaviour implementation.
+
+  Generated from Smithy service definition.
+  """
+
+  use Phoenix.Controller, formats: [:json]
+
+  alias <%= @behaviour_module %>
+  <%= for type_module <- @type_modules do %>
+  alias <%= type_module %>
+  <% end %>
+
+  @behaviour_impl Application.compile_env(<%= @app_name %>, :smithy_behaviour_impl, <%= @behaviour_module %>)
+
+  <%= for operation <- @operations do %>
+  @doc """
+  <%= operation.http.method %> <%= operation.http.uri %>
+
+  <%= operation.documentation || "Handles the #{operation.name} operation." %>
+  """
+  def <%= Macro.underscore(operation.name) %>(conn, params) do
+    <%= if operation.input do %>
+    with {:ok, input} <- parse_input(params, <%= operation.input.name %>),
+         {:ok, output} <- @behaviour_impl.<%= Macro.underscore(operation.name) %>(input) do
+    <% else %>
+    with {:ok, output} <- @behaviour_impl.<%= Macro.underscore(operation.name) %>() do
+    <% end %>
+      conn
+      |> put_status(<%= operation.http.code %>)
+      |> json(output)
+    else
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: translate_changeset_errors(changeset)})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: inspect(reason)})
+    end
+  end
+
+  <% end %>
+
+  # Private helper functions
+
+  defp parse_input(params, schema) do
+    changeset = schema.changeset(%schema{}, params)
+
+    if changeset.valid? do
+      {:ok, Ecto.Changeset.apply_changes(changeset)}
+    else
+      {:error, changeset}
+    end
+  end
+
+  defp translate_changeset_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+  end
+end
