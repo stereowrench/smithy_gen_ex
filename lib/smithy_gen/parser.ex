@@ -35,7 +35,7 @@ defmodule SmithyGen.Parser do
 
   """
   @spec parse_directory(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
-  def parse_directory(directory, opts \\\\ []) do
+  def parse_directory(directory, opts \\ []) do
     use_cli = Keyword.get(opts, :use_smithy_cli, false)
 
     cond do
@@ -91,28 +91,28 @@ defmodule SmithyGen.Parser do
   defp parse_with_cli(directory, opts) do
     cli_path = Keyword.get(opts, :smithy_cli_path, "priv/smithy-cli.jar")
 
-    unless File.exists?(cli_path) do
+    if not File.exists?(cli_path) do
       Logger.warning("Smithy CLI not found at #{cli_path}. Falling back to simple parser.")
-      return parse_smithy_files(directory)
-    end
+      parse_smithy_files(directory)
+    else
+      temp_output = Path.join(System.tmp_dir!(), "smithy_output_#{:rand.uniform(10000)}.json")
 
-    temp_output = Path.join(System.tmp_dir!(), "smithy_output_#{:rand.uniform(10000)}.json")
+      try do
+        # Run Smithy CLI to generate JSON model
+        {output, exit_code} =
+          System.cmd("java", ["-jar", cli_path, "build", directory, "--output", temp_output])
 
-    try do
-      # Run Smithy CLI to generate JSON model
-      {output, exit_code} =
-        System.cmd("java", ["-jar", cli_path, "build", directory, "--output", temp_output])
-
-      if exit_code != 0 do
-        {:error, {:smithy_cli_error, output}}
-      else
-        case File.read(temp_output) do
-          {:ok, json} -> parse_json(json)
-          error -> error
+        if exit_code != 0 do
+          {:error, {:smithy_cli_error, output}}
+        else
+          case File.read(temp_output) do
+            {:ok, json} -> parse_json(json)
+            error -> error
+          end
         end
+      after
+        File.rm(temp_output)
       end
-    after
-      File.rm(temp_output)
     end
   end
 
@@ -200,7 +200,7 @@ defmodule SmithyGen.Parser do
   end
 
   defp parse_service(content, namespace, shapes) do
-    service_regex = ~r/@(\w+)\([^)]*\)\s*service\s+(\w+)\s*\{([^}]+)\}/
+    service_regex = ~r/@(\w+)(?:\([^)]*\))?\s*service\s+(\w+)\s*\{([^}]+)\}/
 
     case Regex.run(service_regex, content) do
       [_, _trait, service_name, body] ->
@@ -261,7 +261,7 @@ defmodule SmithyGen.Parser do
   end
 
   defp parse_members(body, namespace) do
-    member_regex = ~r/(\w+):\s*(\w+)/
+    member_regex = ~r/(\w+):\s*([A-Z]\w*)/
 
     Regex.scan(member_regex, body)
     |> Enum.reduce(%{}, fn [_, member_name, type_name], acc ->
@@ -315,8 +315,9 @@ defmodule SmithyGen.Parser do
     case Regex.run(~r/operations:\s*\[([^\]]+)\]/, body) do
       [_, ops_string] ->
         ops_string
-        |> String.split(",")
+        |> String.split(~r/[,\s]+/, trim: true)
         |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
         |> Enum.map(fn op -> "#{namespace}##{op}" end)
 
       _ ->

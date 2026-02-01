@@ -34,7 +34,7 @@ defmodule SmithyGen.Writer do
 
   """
   @spec write_files([file_spec()], keyword()) :: {:ok, integer()} | {:error, term()}
-  def write_files(file_specs, opts \\\\ []) do
+  def write_files(file_specs, opts \\ []) do
     quiet = Keyword.get(opts, :quiet, false)
     force = Keyword.get(opts, :force, false)
 
@@ -69,7 +69,7 @@ defmodule SmithyGen.Writer do
 
   """
   @spec write_file(file_spec(), keyword()) :: :ok | {:error, term()}
-  def write_file(%{path: path, content: content, format: format?}, opts \\\\ []) do
+  def write_file(%{path: path, content: content, format: format?}, opts \\ []) do
     quiet = Keyword.get(opts, :quiet, false)
     force = Keyword.get(opts, :force, false)
 
@@ -136,7 +136,7 @@ defmodule SmithyGen.Writer do
 
   """
   @spec file_spec(String.t(), String.t(), keyword()) :: file_spec()
-  def file_spec(path, content, opts \\\\ []) do
+  def file_spec(path, content, opts \\ []) do
     %{
       path: path,
       content: content,

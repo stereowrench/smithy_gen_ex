@@ -1,8 +1,7 @@
 defmodule SmithyGenTest do
   use ExUnit.Case
-  doctest SmithyGen
 
-  test "greets the world" do
-    assert SmithyGen.hello() == :world
+  test "version returns a string" do
+    assert is_binary(SmithyGen.version())
   end
 end

@@ -50,7 +50,7 @@ defmodule <%= @module_name %> do
   """
   @spec <%= Macro.underscore(operation.name) %>(<%= if operation.input do %><%= operation.input.name %>.t(),<% end %> keyword()) ::
     <%= if operation.output do %>{:ok, <%= operation.output.name %>.t()}<% else %>{:ok, term()}<% end %> | {:error, term()}
-  def <%= Macro.underscore(operation.name) %>(<%= if operation.input, do: "input, ", else: "" %>opts \\\\ []) do
+  def <%= Macro.underscore(operation.name) %>(<%= if operation.input, do: "input, ", else: "" %>opts \\ []) do
     url = build_url("<%= operation.http.uri %>"<%= if Enum.any?(operation.http.path_params), do: ", input", else: "" %>)
     <%= if operation.input do %>
     body = Jason.encode!(input)

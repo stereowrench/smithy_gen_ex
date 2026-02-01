@@ -33,7 +33,7 @@ defmodule SmithyGen.Generators.Types do
 
   """
   @spec generate(Model.t(), keyword()) :: [Writer.file_spec()]
-  def generate(%Model{} = model, opts \\\\ []) do
+  def generate(%Model{} = model, opts \\ []) do
     base_module = Keyword.fetch!(opts, :base_module)
     output_dir = Keyword.get(opts, :output_dir, "lib")
 
@@ -76,17 +76,9 @@ defmodule SmithyGen.Generators.Types do
 
           @doc """
           Creates a changeset for validation.
-
-          ## Examples
-
-              iex> #{inspect(module_name)}.changeset(%#{inspect(module_name)}{}, %{})
-              %Ecto.Changeset{}
-
           """
-          def changeset(struct \\\\ %__MODULE__{}, params) do
-            struct
-            |> cast(params, unquote(get_field_names(shape)))
-            |> unquote_splicing(generate_validations(shape))
+          def changeset(struct \\ %__MODULE__{}, params) do
+            unquote(generate_changeset_body(shape))
           end
         end
       end
@@ -129,6 +121,29 @@ defmodule SmithyGen.Generators.Types do
         field(unquote(field_atom), unquote(ecto_type))
       end
     end)
+  end
+
+  defp generate_changeset_body(shape) do
+    field_names = get_field_names(shape)
+    validations = generate_validations(shape)
+
+    base =
+      quote do
+        struct
+        |> cast(params, unquote(field_names))
+      end
+
+    case validations do
+      [] ->
+        base
+
+      _ ->
+        Enum.reduce(validations, base, fn validation, acc ->
+          quote do
+            unquote(acc) |> unquote(validation)
+          end
+        end)
+    end
   end
 
   defp generate_validations(shape) do
